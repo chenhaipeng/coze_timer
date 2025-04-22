@@ -30,11 +30,13 @@ public class TaskScheduleUtil {
      */
     public LocalDateTime getNextRunTime(String cronExpression) {
         try {
-            ZonedDateTime now = ZonedDateTime.now();
+            // 使用中国时区
+            ZoneId chinaZone = ZoneId.of("Asia/Shanghai");
+            ZonedDateTime now = ZonedDateTime.now(chinaZone);
             ExecutionTime executionTime = ExecutionTime.forCron(cronParser.parse(cronExpression));
             Optional<ZonedDateTime> nextExecution = executionTime.nextExecution(now);
             
-            return nextExecution.map(zonedDateTime -> zonedDateTime.toLocalDateTime()).orElse(null);
+            return nextExecution.map(ZonedDateTime::toLocalDateTime).orElse(null);
         } catch (Exception e) {
             return null;
         }

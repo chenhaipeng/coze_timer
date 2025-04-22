@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -234,7 +235,10 @@ public class TaskServiceImpl implements TaskService {
      */
     @Override
     public boolean updateTaskStatus(String taskId, String status) {
-        // 尝试获取分布式锁
+        if (taskId == null || status == null) {
+            return false;
+        }
+        
         String lockKey = TASK_LOCK_PREFIX + taskId;
         Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, "1", 10, TimeUnit.SECONDS);
         
@@ -245,10 +249,13 @@ public class TaskServiceImpl implements TaskService {
                     return false;
                 }
                 
-                // 计算下一次执行时间
+                // 计算下次执行时间
                 LocalDateTime nextRunTime = null;
+                // 使用中国时区
+                ZoneId chinaZone = ZoneId.of("Asia/Shanghai");
+                
                 if ("running".equals(status) && "interval".equals(task.getType())) {
-                    nextRunTime = LocalDateTime.now().plusSeconds(task.getIntervalSeconds());
+                    nextRunTime = LocalDateTime.now(chinaZone).plusSeconds(task.getIntervalSeconds());
                 } else if ("running".equals(status) && "cron".equals(task.getType())) {
                     nextRunTime = taskScheduleUtil.getNextRunTime(task.getCronExpression());
                 }
@@ -266,13 +273,17 @@ public class TaskServiceImpl implements TaskService {
      * 计算下次执行时间
      */
     private LocalDateTime calculateNextRunTime(TaskRequest request) {
+        // 使用中国时区
+        ZoneId chinaZone = ZoneId.of("Asia/Shanghai");
+        LocalDateTime nowInChina = LocalDateTime.now(chinaZone);
+        
         LocalDateTime startTime = request.getStartTime();
         if (startTime == null) {
-            startTime = LocalDateTime.now();
+            startTime = nowInChina;
         }
         
-        if (startTime.isBefore(LocalDateTime.now())) {
-            startTime = LocalDateTime.now();
+        if (startTime.isBefore(nowInChina)) {
+            startTime = nowInChina;
         }
         
         switch (request.getType()) {
