@@ -1,0 +1,92 @@
+version: '3.8'
+
+# Springboot, MySQL, Redis, and ZooKeeper services
+services:
+  app:
+    build: .
+    container_name: coze_timer_app
+    restart: always
+    depends_on:
+      - mysql
+      - redis
+      - zookeeper
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/coze_timer?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - ZOOKEEPER_HOST=zookeeper
+      - ZOOKEEPER_PORT=2181
+      - MANAGEMENT_METRICS_ENABLE_PROCESS_METRICS=false
+      - MANAGEMENT_METRICS_ENABLE=false
+      - SPRING_AUTOCONFIGURE_EXCLUDE=org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration,org.springframework.boot.actuate.autoconfigure.metrics.web.servlet.WebMvcMetricsAutoConfiguration,org.springframework.boot.actuate.autoconfigure.metrics.SystemMetricsAutoConfiguration,org.springframework.boot.actuate.autoconfigure.metrics.export.simple.SimpleMetricsExportAutoConfiguration
+      - JAVA_TOOL_OPTIONS=-XX:+UseSerialGC -XX:-UsePerfData
+      - TIMER_DISTRIBUTED=false
+      - TZ=Asia/Shanghai
+      - SPRING_JPA_PROPERTIES_HIBERNATE_JDBC_TIME_ZONE=Asia/Shanghai
+      - SPRING_JACKSON_TIME_ZONE=Asia/Shanghai
+    networks:
+      - default
+
+  mysql:
+    image: mysql:8.0
+    container_name: coze_timer_mysql
+    restart: always
+    ports:
+      - "13306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=coze_timer
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+8:00
+    networks:
+      - default
+
+  redis:
+    image: redis:7.0
+    container_name: coze_timer_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./docker/redis/data:/data
+    networks:
+      - default
+
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: coze_timer_zookeeper
+    restart: always
+    ports:
+      - "2181:2181"
+    volumes:
+      - ./docker/zookeeper/data:/data
+      - ./docker/zookeeper/datalog:/datalog
+    environment:
+      - ZOO_MY_ID=1
+      - ZOO_TICK_TIME=2000
+      - ZOO_CLIENT_PORT=2181
+      - TZ=Asia/Shanghai
+    networks:
+      - default
+
+volumes:
+  mysql-data:
+  redis-data:
+  zookeeper-data:
+
+networks:
+  default:
+    name: coze_timer_default
+
+# 注意：SpringDoc Swagger UI 可以通过以下URL访问:
+# - Swagger UI: http://localhost:8080/swagger-ui/index.html 
+# - OpenAPI 规范: http://localhost:8080/v3/api-docs 

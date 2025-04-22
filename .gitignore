@@ -1,0 +1,43 @@
+# 编译输出目录
+/target/
+/bin/
+/build/
+/docker/mysql/
+/out/
+
+# IDE文件
+.idea/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.vscode/
+
+# 日志文件
+*.log
+logs/
+
+# 运行时数据
+.DS_Store
+Thumbs.db
+
+# 依赖缓存
+.mvn/
+.gradle/
+
+# Docker数据目录
+/docker/mysql/data/**
+/docker/redis/data/**
+/docker/zookeeper/data/**
+/docker/zookeeper/datalog/**
+
+# 忽略所有.sdi文件
+**/*.sdi
+
+# 其他临时文件
+*.swp
+*.swo
+*~ 
+docker/mysql/data_backup_20250422164112/#innodb_redo/#ib_redo10_tmp

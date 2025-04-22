@@ -1,0 +1,60 @@
+version: '3'
+
+services:
+  debug-app:
+    image: coze-timer:latest
+    container_name: coze_timer_debug_app
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/coze_timer?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_REDIS_HOST=redis
+      - TIMER_ZOOKEEPER_HOST=zookeeper
+      - TIMER_DISTRIBUTED=false
+      - LOGGING_LEVEL_COM_COZE_TIMER=TRACE
+      - LOGGING_LEVEL_COM_COZE_TIMER_SCHEDULER=TRACE
+      - LOGGING_LEVEL_ROOT=INFO
+    depends_on:
+      - mysql
+      - redis
+      - zookeeper
+    networks:
+      - coze-timer-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: coze_timer_debug_mysql
+    ports:
+      - "13307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=coze_timer
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - coze-timer-network
+
+  redis:
+    image: redis:7.0
+    container_name: coze_timer_debug_redis
+    ports:
+      - "6380:6379"
+    networks:
+      - coze-timer-network
+
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: coze_timer_debug_zookeeper
+    ports:
+      - "2182:2181"
+    environment:
+      - ZOO_MY_ID=1
+      - ZOO_SERVERS=server.1=localhost:2888:3888
+    networks:
+      - coze-timer-network
+
+networks:
+  coze-timer-network:
+    driver: bridge 
