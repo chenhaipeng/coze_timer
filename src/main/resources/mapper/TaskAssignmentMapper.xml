@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.coze.timer.mapper.TaskAssignmentMapper">
+    
+    <resultMap id="taskAssignmentMap" type="com.coze.timer.model.TaskAssignment">
+        <id property="id" column="id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="instanceId" column="instance_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    
+    <insert id="insert" parameterType="com.coze.timer.model.TaskAssignment">
+        INSERT INTO task_assignment (
+            task_id, instance_id, created_at, updated_at
+        ) VALUES (
+            #{taskId}, #{instanceId}, NOW(), NOW()
+        )
+    </insert>
+    
+    <select id="findByTaskId" resultMap="taskAssignmentMap">
+        SELECT * FROM task_assignment WHERE task_id = #{taskId}
+    </select>
+    
+    <select id="findByInstanceId" resultMap="taskAssignmentMap">
+        SELECT * FROM task_assignment WHERE instance_id = #{instanceId}
+    </select>
+    
+    <update id="update" parameterType="com.coze.timer.model.TaskAssignment">
+        UPDATE task_assignment 
+        SET instance_id = #{instanceId},
+            updated_at = NOW()
+        WHERE task_id = #{taskId}
+    </update>
+    
+    <delete id="deleteByTaskId">
+        DELETE FROM task_assignment WHERE task_id = #{taskId}
+    </delete>
+    
+</mapper> 

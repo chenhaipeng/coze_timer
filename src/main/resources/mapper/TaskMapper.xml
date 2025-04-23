@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.coze.timer.mapper.TaskMapper">
+    
+    <resultMap id="taskMap" type="com.coze.timer.model.Task">
+        <id property="taskId" column="task_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="type" column="type"/>
+        <result property="httpEndpoint" column="http_endpoint"/>
+        <result property="method" column="method"/>
+        <result property="headers" column="headers"/>
+        <result property="requestBody" column="request_body"/>
+        <result property="intervalSeconds" column="interval_seconds"/>
+        <result property="cronExpression" column="cron_expression"/>
+        <result property="startTime" column="start_time"/>
+        <result property="status" column="status"/>
+        <result property="nextRunTime" column="next_run_time"/>
+        <result property="stopCondition" column="stop_condition"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    
+    <insert id="insert" parameterType="com.coze.timer.model.Task">
+        INSERT INTO tasks (
+            task_id, user_id, type, http_endpoint, method, headers, request_body,
+            interval_seconds, cron_expression, start_time, status, next_run_time,
+            stop_condition, created_at, updated_at
+        ) VALUES (
+            #{taskId}, #{userId}, #{type}, #{httpEndpoint}, #{method}, #{headers}, #{requestBody},
+            #{intervalSeconds}, #{cronExpression}, #{startTime}, #{status}, #{nextRunTime},
+            #{stopCondition}, NOW(), NOW()
+        )
+    </insert>
+    
+    <select id="findById" resultMap="taskMap">
+        SELECT * FROM tasks WHERE task_id = #{taskId}
+    </select>
+    
+    <update id="updateStatus">
+        UPDATE tasks 
+        SET status = #{status},
+            next_run_time = #{nextRunTime},
+            updated_at = NOW()
+        WHERE task_id = #{taskId}
+    </update>
+    
+    <delete id="deleteById">
+        DELETE FROM tasks WHERE task_id = #{taskId}
+    </delete>
+    
+    <select id="findTasksToExecute" resultMap="taskMap">
+        SELECT * FROM tasks 
+        WHERE status = 'pending'
+        AND next_run_time &lt;= #{time}
+        <if test="taskId != null">
+            AND task_id = #{taskId}
+        </if>
+        ORDER BY next_run_time ASC
+        LIMIT #{limit}
+    </select>
+    
+    <select id="findByUserId" resultMap="taskMap">
+        SELECT * FROM tasks 
+        WHERE user_id = #{userId}
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+    
+    <select id="countRunningTasks" resultType="int">
+        SELECT COUNT(*) FROM tasks 
+        WHERE user_id = #{userId} 
+        AND status = 'running'
+    </select>
+    
+    <select id="findUnassignedTasks" resultMap="taskMap">
+        SELECT t.* FROM tasks t
+        LEFT JOIN task_assignment ta ON t.task_id = ta.task_id
+        WHERE ta.task_id IS NULL
+        AND t.status = 'pending'
+        ORDER BY t.created_at ASC
+        LIMIT #{limit}
+    </select>
+    
+</mapper> 

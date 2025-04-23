@@ -1,0 +1,80 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: coze-timer
+  main:
+    allow-bean-definition-overriding: true
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/coze_timer?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root@123456
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
+
+timer:
+  instance:
+    name: coze-timer-1
+  heartbeat:
+    interval: 30
+    timeout: 90
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.coze.timer.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    cache-enabled: true
+    lazy-loading-enabled: true
+    aggressive-lazy-loading: false
+    default-executor-type: SIMPLE
+    default-statement-timeout: 25000
+    default-fetch-size: 100
+    default-result-set-type: FORWARD_ONLY
+    safe-row-bounds-enabled: true
+    safe-result-handler-enabled: true
+    local-cache-scope: SESSION
+    jdbc-type-for-null: NULL
+    lazy-load-trigger-methods: ""
+    default-scripting-language: org.apache.ibatis.scripting.xmltags.XMLLanguageDriver
+    default-enum-type-handler: org.apache.ibatis.type.EnumOrdinalTypeHandler
+    call-setters-on-nulls: false
+    return-instance-for-empty-row: false
+
+logging:
+  level:
+    com.coze.timer: debug
+    org.springframework: info
+    org.mybatis: debug
+    org.springframework.scheduling: debug
+    net.javacrumbs.shedlock: debug
+  file:
+    name: logs/coze-timer.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method 

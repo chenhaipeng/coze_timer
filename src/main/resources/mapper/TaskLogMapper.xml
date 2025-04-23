@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.coze.timer.mapper.TaskLogMapper">
+    
+    <resultMap id="taskLogMap" type="com.coze.timer.model.TaskLog">
+        <id property="logId" column="log_id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="httpStatus" column="http_status"/>
+        <result property="responseBody" column="response_body"/>
+        <result property="executionTime" column="execution_time"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+    
+    <insert id="insert" parameterType="com.coze.timer.model.TaskLog">
+        INSERT INTO task_logs (
+            log_id, task_id, user_id, http_status, response_body, execution_time, created_at
+        ) VALUES (
+            #{logId}, #{taskId}, #{userId}, #{httpStatus}, #{responseBody}, #{executionTime}, NOW()
+        )
+    </insert>
+    
+    <select id="findLatestByTaskId" resultMap="taskLogMap">
+        SELECT * FROM task_logs 
+        WHERE task_id = #{taskId}
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+    
+    <select id="findByTaskId" resultMap="taskLogMap">
+        SELECT * FROM task_logs 
+        WHERE task_id = #{taskId}
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+    
+    <select id="countByTaskId" resultType="int">
+        SELECT COUNT(*) FROM task_logs WHERE task_id = #{taskId}
+    </select>
+    
+</mapper> 

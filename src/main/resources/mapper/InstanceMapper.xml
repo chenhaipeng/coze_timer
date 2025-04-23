@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.coze.timer.mapper.InstanceMapper">
+    
+    <resultMap id="instanceMap" type="com.coze.timer.model.Instance">
+        <id property="id" column="id"/>
+        <result property="instanceName" column="instance_name"/>
+        <result property="ipAddress" column="ip_address"/>
+        <result property="port" column="port"/>
+        <result property="status" column="status"/>
+        <result property="lastHeartbeat" column="last_heartbeat"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    
+    <insert id="insert" parameterType="com.coze.timer.model.Instance">
+        INSERT INTO instance (
+            instance_name, ip_address, port, status, last_heartbeat, created_at, updated_at
+        ) VALUES (
+            #{instanceName}, #{ipAddress}, #{port}, #{status}, #{lastHeartbeat}, NOW(), NOW()
+        )
+    </insert>
+    
+    <select id="findById" resultMap="instanceMap">
+        SELECT * FROM instance WHERE id = #{id}
+    </select>
+    
+    <select id="findByName" resultMap="instanceMap">
+        SELECT * FROM instance WHERE instance_name = #{instanceName}
+    </select>
+    
+    <select id="findByIpAndPort" resultMap="instanceMap">
+        SELECT * FROM instance WHERE ip_address = #{ipAddress} AND port = #{port}
+    </select>
+    
+    <select id="findActiveInstances" resultMap="instanceMap">
+        SELECT * FROM instance WHERE status = 'active'
+    </select>
+    
+    <select id="findInactiveInstances" resultMap="instanceMap">
+        SELECT * FROM instance 
+        WHERE status = 'active' 
+        AND (last_heartbeat IS NULL OR last_heartbeat &lt; DATE_SUB(NOW(), INTERVAL 2 MINUTE))
+    </select>
+    
+    <update id="update" parameterType="com.coze.timer.model.Instance">
+        UPDATE instance 
+        SET instance_name = #{instanceName},
+            ip_address = #{ipAddress},
+            port = #{port},
+            status = #{status},
+            last_heartbeat = #{lastHeartbeat},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+    
+    <update id="updateStatus">
+        UPDATE instance 
+        SET status = #{status},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+    
+    <update id="updateHeartbeat">
+        UPDATE instance 
+        SET last_heartbeat = NOW(),
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+    
+    <delete id="deleteById">
+        DELETE FROM instance WHERE id = #{id}
+    </delete>
+    
+</mapper> 
