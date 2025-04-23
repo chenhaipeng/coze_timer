@@ -81,21 +81,21 @@ public class ScheduledTasks {
      * 更新实例心跳
      * 每分钟执行一次
      */
-    @Scheduled(fixedRate = 60000)
-    //@SchedulerLock(name = "updateHeartbeat", lockAtLeastFor = "PT30S")
-    public void updateHeartbeat() {
-        try {
-            Instance currentInstance = instanceMapper.findByName(instanceName);
-            if (currentInstance != null) {
-                instanceMapper.updateHeartbeat(currentInstance.getId());
-                log.debug("更新实例[{}]心跳成功", instanceName);
-            } else {
-                log.warn("实例[{}]不存在，无法更新心跳", instanceName);
-            }
-        } catch (Exception e) {
-            log.error("更新实例心跳失败", e);
-        }
-    }
+//    @Scheduled(fixedRate = 60000)
+//    //@SchedulerLock(name = "updateHeartbeat", lockAtLeastFor = "PT30S")
+//    public void updateHeartbeat() {
+//        try {
+//            Instance currentInstance = instanceMapper.findByName(instanceName);
+//            if (currentInstance != null) {
+//                instanceMapper.updateHeartbeat(currentInstance.getId());
+//                log.debug("更新实例[{}]心跳成功", instanceName);
+//            } else {
+//                log.warn("实例[{}]不存在，无法更新心跳", instanceName);
+//            }
+//        } catch (Exception e) {
+//            log.error("更新实例心跳失败", e);
+//        }
+//    }
 
     /**
      * 分配任务到实例
