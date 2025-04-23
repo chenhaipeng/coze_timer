@@ -19,7 +19,7 @@ public interface TaskService {
     /**
      * 根据ID查询任务
      */
-    TaskResponse getTaskById(String taskId);
+    TaskResponse getTask(String taskId);
     
     /**
      * 取消任务
@@ -44,10 +44,17 @@ public interface TaskService {
     /**
      * 获取需要执行的任务
      */
-    List<Task> getTasksToExecute(int limit);
+    List<Task> getTasksToExecute(String taskId, int limit);
     
     /**
      * 更新任务状态
      */
-    boolean updateTaskStatus(String taskId, String status);
+    TaskResponse updateTaskStatus(String taskId, String status);
+    
+    /**
+     * 获取未分配的任务
+     * @param limit 最大获取数量
+     * @return 未分配的任务列表
+     */
+    List<Task> getUnassignedTasks(int limit);
 } 

@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,7 +28,8 @@ import java.util.Map;
 @Tag(name = "任务管理", description = "定时任务的创建、查询、取消和删除")
 public class TaskController {
     
-    private final TaskService taskService;
+    @Autowired
+    private TaskService taskService;
     
     /**
      * 添加定时任务
@@ -62,7 +64,7 @@ public class TaskController {
     )
     public ResponseEntity<TaskResponse> getTask(
             @Parameter(description = "任务ID") @PathVariable String taskId) {
-        TaskResponse response = taskService.getTaskById(taskId);
+        TaskResponse response = taskService.getTask(taskId);
         return ResponseEntity.ok(response);
     }
     

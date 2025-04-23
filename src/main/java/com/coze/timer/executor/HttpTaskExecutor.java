@@ -3,6 +3,7 @@ package com.coze.timer.executor;
 import com.coze.timer.mapper.TaskLogMapper;
 import com.coze.timer.model.Task;
 import com.coze.timer.model.TaskLog;
+import com.coze.timer.model.dto.TaskResponse;
 import com.coze.timer.service.TaskService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -99,9 +100,10 @@ public class HttpTaskExecutor {
                     return;
                 }
                 
-                // 尝试更新任务状态为running
-                if (!taskService.updateTaskStatus(task.getTaskId(), "running")) {
-                    log.warn("任务[{}]状态更新失败，可能已被其他节点处理", task.getTaskId());
+                // 更新任务状态为运行中
+                TaskResponse response = taskService.updateTaskStatus(task.getTaskId(), "running");
+                if (!"success".equals(response.getStatus())) {
+                    log.error("更新任务[{}]状态为运行中失败: {}", task.getTaskId(), response.getMessage());
                     return;
                 }
                 
@@ -112,13 +114,13 @@ public class HttpTaskExecutor {
                 LocalDateTime startDateTime = LocalDateTime.now();
                 
                 // 执行HTTP请求
-                try (Response response = httpClient.newCall(request).execute()) {
+                try (Response responseFromServer = httpClient.newCall(request).execute()) {
                     // 计算执行耗时
                     long executionTime = ChronoUnit.MILLIS.between(startDateTime, LocalDateTime.now());
                     
                     // 解析响应
-                    int statusCode = response.code();
-                    String responseBody = response.body() != null ? response.body().string() : "";
+                    int statusCode = responseFromServer.code();
+                    String responseBody = responseFromServer.body() != null ? responseFromServer.body().string() : "";
                     
                     // 记录执行日志
                     TaskLog taskLog = TaskLog.builder()
@@ -133,7 +135,10 @@ public class HttpTaskExecutor {
                     
                     // 检查是否达到停止条件
                     if (checkStopCondition(task, statusCode, responseBody)) {
-                        taskService.updateTaskStatus(task.getTaskId(), "completed");
+                        TaskResponse completeResponse = taskService.updateTaskStatus(task.getTaskId(), "completed");
+                        if (!"success".equals(completeResponse.getStatus())) {
+                            log.error("更新任务[{}]状态为已完成失败: {}", task.getTaskId(), completeResponse.getMessage());
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -156,7 +161,10 @@ public class HttpTaskExecutor {
                     }
                     
                     // 如果不能重试，更新任务状态为失败
-                    taskService.updateTaskStatus(task.getTaskId(), "failed");
+                    TaskResponse failResponse = taskService.updateTaskStatus(task.getTaskId(), "failed");
+                    if (!"success".equals(failResponse.getStatus())) {
+                        log.error("更新任务[{}]状态为失败失败: {}", task.getTaskId(), failResponse.getMessage());
+                    }
                 } catch (Exception ex) {
                     log.error("记录任务[{}]失败日志异常", task.getTaskId(), ex);
                 }

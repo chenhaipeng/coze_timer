@@ -2,18 +2,21 @@ package com.coze.timer.service.impl;
 
 import com.coze.timer.mapper.TaskLogMapper;
 import com.coze.timer.mapper.TaskMapper;
+import com.coze.timer.mapper.InstanceMapper;
+import com.coze.timer.mapper.TaskAssignmentMapper;
 import com.coze.timer.model.Task;
-import com.coze.timer.model.TaskLog;
+import com.coze.timer.model.Instance;
+import com.coze.timer.model.TaskAssignment;
 import com.coze.timer.model.dto.TaskRequest;
 import com.coze.timer.model.dto.TaskResponse;
 import com.coze.timer.service.TaskService;
 import com.coze.timer.util.TaskScheduleUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.RedisTemplate;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,26 +25,34 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 任务服务实现类
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TaskServiceImpl implements TaskService {
     
-    private final TaskMapper taskMapper;
-    private final TaskLogMapper taskLogMapper;
-    private final ObjectMapper objectMapper;
+    @Autowired
+    private TaskMapper taskMapper;
     
-    // 使用Spring Boot自动配置的stringRedisTemplate或customStringRedisTemplate
-    private final RedisTemplate<String, String> stringRedisTemplate;
+    @Autowired
+    private TaskLogMapper taskLogMapper;
     
-    private final TaskScheduleUtil taskScheduleUtil;
+    @Autowired
+    private ObjectMapper objectMapper;
     
-    private static final String TASK_LOCK_PREFIX = "task_lock:";
+    @Autowired
+    private TaskScheduleUtil taskScheduleUtil;
+    
+    @Autowired
+    private InstanceMapper instanceMapper;
+    
+    @Autowired
+    private TaskAssignmentMapper taskAssignmentMapper;
+    
+    @Value("${timer.instance.name}")
+    private String instanceName;
     
     /**
      * 创建任务
@@ -85,14 +96,27 @@ public class TaskServiceImpl implements TaskService {
             // 5. 保存任务
             taskMapper.insert(task);
             
-            // 6. 将任务加入Redis
-            addTaskToRedis(task);
+            // 6. 立即分配任务到当前实例
+            Instance currentInstance = instanceMapper.findByName(instanceName);
+            if (currentInstance != null && "active".equals(currentInstance.getStatus())) {
+                TaskAssignment assignment = new TaskAssignment();
+                assignment.setTaskId(taskId);
+                assignment.setInstanceId(currentInstance.getId());
+                assignment.setCreatedAt(LocalDateTime.now());
+                assignment.setUpdatedAt(LocalDateTime.now());
+                taskAssignmentMapper.insert(assignment);
+                log.info("任务[{}]已分配到实例[{}]", taskId, instanceName);
+            }
             
             // 7. 构建响应
             TaskResponse response = new TaskResponse();
-            response.setStatus("success");
             response.setTaskId(taskId);
+            response.setTaskStatus("pending");
+            response.setType(request.getType());
+            response.setHttpEndpoint(request.getHttpEndpoint());
             response.setNextRunTime(nextRunTime);
+            response.setCreatedAt(LocalDateTime.now());
+            
             return response;
         } catch (Exception e) {
             log.error("创建任务失败", e);
@@ -107,7 +131,7 @@ public class TaskServiceImpl implements TaskService {
      * 根据ID查询任务
      */
     @Override
-    public TaskResponse getTaskById(String taskId) {
+    public TaskResponse getTask(String taskId) {
         Task task = taskMapper.findById(taskId);
         if (task == null) {
             TaskResponse response = new TaskResponse();
@@ -116,24 +140,12 @@ public class TaskServiceImpl implements TaskService {
             return response;
         }
         
-        // 查询最近一次执行记录
-        TaskLog latestLog = taskLogMapper.findLatestByTaskId(taskId);
-        TaskResponse.ExecutionRecord executionRecord = null;
-        
-        if (latestLog != null) {
-            executionRecord = new TaskResponse.ExecutionRecord();
-            executionRecord.setTimestamp(latestLog.getCreatedAt());
-            executionRecord.setHttpStatus(latestLog.getHttpStatus());
-            executionRecord.setResponseBody(latestLog.getResponseBody());
-        }
-        
         TaskResponse response = new TaskResponse();
         response.setStatus("success");
         response.setTaskId(task.getTaskId());
         response.setTaskStatus(task.getStatus());
         response.setType(task.getType());
         response.setHttpEndpoint(task.getHttpEndpoint());
-        response.setLastExecution(executionRecord);
         response.setNextRunTime(task.getNextRunTime());
         response.setCreatedAt(task.getCreatedAt());
         return response;
@@ -155,9 +167,6 @@ public class TaskServiceImpl implements TaskService {
         
         // 更新任务状态为stopped
         taskMapper.updateStatus(taskId, "stopped", null);
-        
-        // 从Redis中移除任务
-        removeTaskFromRedis(taskId);
         
         TaskResponse response = new TaskResponse();
         response.setStatus("success");
@@ -181,9 +190,6 @@ public class TaskServiceImpl implements TaskService {
         
         // 删除任务
         taskMapper.deleteById(taskId);
-        
-        // 从Redis中移除任务
-        removeTaskFromRedis(taskId);
         
         TaskResponse response = new TaskResponse();
         response.setStatus("success");
@@ -226,47 +232,56 @@ public class TaskServiceImpl implements TaskService {
      * 获取需要执行的任务
      */
     @Override
-    public List<Task> getTasksToExecute(int limit) {
-        return taskMapper.findTasksToExecute(LocalDateTime.now(), limit);
+    public List<Task> getTasksToExecute(String taskId, int limit) {
+        return taskMapper.findTasksToExecute(taskId, LocalDateTime.now(), limit);
     }
     
     /**
      * 更新任务状态
      */
     @Override
-    public boolean updateTaskStatus(String taskId, String status) {
+    @SchedulerLock(name = "updateTaskStatus", lockAtLeastFor = "PT5S")
+    public TaskResponse updateTaskStatus(String taskId, String status) {
         if (taskId == null || status == null) {
-            return false;
+            return TaskResponse.builder()
+                    .status("error")
+                    .message("Task ID and status cannot be null")
+                    .build();
         }
         
-        String lockKey = TASK_LOCK_PREFIX + taskId;
-        Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, "1", 10, TimeUnit.SECONDS);
-        
-        if (Boolean.TRUE.equals(acquired)) {
-            try {
-                Task task = taskMapper.findById(taskId);
-                if (task == null) {
-                    return false;
-                }
-                
-                // 计算下次执行时间
-                LocalDateTime nextRunTime = null;
-                // 使用中国时区
-                ZoneId chinaZone = ZoneId.of("Asia/Shanghai");
-                
-                if ("running".equals(status) && "interval".equals(task.getType())) {
-                    nextRunTime = LocalDateTime.now(chinaZone).plusSeconds(task.getIntervalSeconds());
-                } else if ("running".equals(status) && "cron".equals(task.getType())) {
-                    nextRunTime = taskScheduleUtil.getNextRunTime(task.getCronExpression());
-                }
-                
-                return taskMapper.updateStatus(taskId, status, nextRunTime) > 0;
-            } finally {
-                // 释放锁
-                stringRedisTemplate.delete(lockKey);
-            }
+        Task task = taskMapper.findById(taskId);
+        if (task == null) {
+            return TaskResponse.builder()
+                    .status("error")
+                    .message("Task not found")
+                    .build();
         }
-        return false;
+        
+        // 计算下次执行时间
+        LocalDateTime nextRunTime = null;
+        // 使用中国时区
+        ZoneId chinaZone = ZoneId.of("Asia/Shanghai");
+        
+        if ("running".equals(status) && "interval".equals(task.getType())) {
+            nextRunTime = LocalDateTime.now(chinaZone).plusSeconds(task.getIntervalSeconds());
+        } else if ("running".equals(status) && "cron".equals(task.getType())) {
+            nextRunTime = taskScheduleUtil.getNextRunTime(task.getCronExpression());
+        }
+        
+        boolean success = taskMapper.updateStatus(taskId, status, nextRunTime) > 0;
+        if (success) {
+            return TaskResponse.builder()
+                    .status("success")
+                    .taskId(taskId)
+                    .taskStatus(status)
+                    .nextRunTime(nextRunTime)
+                    .build();
+        } else {
+            return TaskResponse.builder()
+                    .status("error")
+                    .message("Failed to update task status")
+                    .build();
+        }
     }
     
     /**
@@ -305,19 +320,10 @@ public class TaskServiceImpl implements TaskService {
     }
     
     /**
-     * 将任务添加到Redis
+     * 获取未分配的任务
      */
-    private void addTaskToRedis(Task task) throws JsonProcessingException {
-        String taskJson = objectMapper.writeValueAsString(task);
-        String key = "task:" + task.getTaskId();
-        stringRedisTemplate.opsForValue().set(key, taskJson);
-    }
-    
-    /**
-     * 从Redis中移除任务
-     */
-    private void removeTaskFromRedis(String taskId) {
-        String key = "task:" + taskId;
-        stringRedisTemplate.delete(key);
+    @Override
+    public List<Task> getUnassignedTasks(int limit) {
+        return taskMapper.findUnassignedTasks(limit);
     }
 } 

@@ -37,7 +37,9 @@ public interface TaskMapper {
     /**
      * 查询指定时间之前需要执行的任务
      */
-    List<Task> findTasksToExecute(@Param("time") LocalDateTime time, @Param("limit") int limit);
+    List<Task> findTasksToExecute(@Param("taskId") String taskId, 
+                                 @Param("time") LocalDateTime time, 
+                                 @Param("limit") int limit);
     
     /**
      * 按用户ID查询任务列表
@@ -49,4 +51,9 @@ public interface TaskMapper {
      * 统计用户运行中的任务数
      */
     int countRunningTasks(@Param("userId") Integer userId);
+    
+    /**
+     * 查询未分配的任务
+     */
+    List<Task> findUnassignedTasks(@Param("limit") int limit);
 } 

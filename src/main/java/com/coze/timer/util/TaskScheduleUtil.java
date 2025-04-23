@@ -18,7 +18,7 @@ import java.util.Optional;
 @Component
 public class TaskScheduleUtil {
     
-    private final CronParser cronParser;
+    private CronParser cronParser;
     
     public TaskScheduleUtil() {
         CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(CronType.SPRING);
